@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Text.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Caching.Distributed;
 using Moq;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using SFA.DAS.EmployerFeedback.Domain.Types;
-using SFA.DAS.EmployerFeedback.Infrastructure.Configuration;
+using SFA.DAS.EmployerFeedback.Infrastructure.Services.SessionStorage;
 using SFA.DAS.EmployerFeedback.Web.Models.Shared;
 using SFA.DAS.EmployerFeedback.Web.Paging;
 using SFA.DAS.EmployerFeedback.Web.Services.SessionStorage;
@@ -19,245 +14,338 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Services
     [TestFixture]
     public class SessionStorageServiceTests
     {
-        private Mock<IDistributedCache> _mockCache;
-        private Mock<IWebHostEnvironment> _mockEnvironment;
-        private EmployerFeedbackWebConfiguration _config;
-        private SessionStorageService _sut;
-        private Guid _userId;
+        private Mock<ISessionStorageService> _sessionStorageServiceMock;       
+        private SessionService _sessionService;        
 
         [SetUp]
         public void Setup()
         {
-            _mockCache = new Mock<IDistributedCache>();
-            _mockEnvironment = new Mock<IWebHostEnvironment>();
-            _mockEnvironment.Setup(e => e.EnvironmentName).Returns("LOCAL");
-            _config = new EmployerFeedbackWebConfiguration { SlidingExpirationMinutes = 15 };
-            _sut = new SessionStorageService(_mockCache.Object, _config, _mockEnvironment.Object);
-            _userId = Guid.NewGuid();
+            _sessionStorageServiceMock = new Mock<ISessionStorageService>();          
+            _sessionService = new SessionService(_sessionStorageServiceMock.Object);           
         }
 
-        private static byte[] ToBytes(object obj) => System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(obj));
-        private static T FromBytes<T>(byte[] bytes) => JsonConvert.DeserializeObject<T>(System.Text.Encoding.UTF8.GetString(bytes));
+        private static string ToJson<T>(T obj) => JsonSerializer.Serialize(obj);
+
+        private static T FromJson<T>(string json) => JsonSerializer.Deserialize<T>(json)!;
 
         [Test]
-        public async Task SetSurveyModel_Should_Serialize_And_Store_With_Environment_Prefix()
+        public  void SetSurveyModel_Should_Store_Serialized_SurveyModel()
         {
             // Arrange
-            var survey = new SurveyModel { AccountId = 1, ProviderName = "Test Provider" };
-            string storedKey = null;
-            byte[] storedValue = null;
-            _mockCache
-                .Setup(c => c.SetAsync(
-                    It.IsAny<string>(),
-                    It.IsAny<byte[]>(),
-                    It.IsAny<DistributedCacheEntryOptions>(),
-                    It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((key, value, _, _) =>
+            var survey = new SurveyModel
+            {
+                AccountId = 1,
+                ProviderName = "Test Provider"
+            };
+
+            string storedKey = null!;
+            string storedValue = null!;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((key, value) =>
                 {
                     storedKey = key;
                     storedValue = value;
-                })
-                .Returns(Task.CompletedTask);
+                });               
 
             // Act
-            await _sut.SetSurveyModel(_userId, survey);
+             _sessionService.SetSurveyModel(survey);
 
             // Assert
-            storedKey.Should().Be("LOCAL_" + _userId);
-            var saved = FromBytes<SurveyModel>(storedValue);
-            saved.ProviderName.Should().Be("Test Provider");
+            storedKey.Should().Be("SurveyModel");
+
+            var savedItem = FromJson<SurveyModel>(storedValue);
+            savedItem.AccountId.Should().Be(1);
+            savedItem.ProviderName.Should().Be("Test Provider");
         }
 
         [Test]
-        public async Task GetSurveyModel_Should_Deserialize_Stored_Value()
+        public void GetSurveyModel_Should_Return_Deserialized_SurveyModel()
         {
             // Arrange
-            var expected = new SurveyModel { ProviderName = "Stored" };
-            var bytes = ToBytes(expected);
-            _mockCache.Setup(c => c.GetAsync("LOCAL_" + _userId.ToString(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(bytes);
+            var expectedItem = new SurveyModel
+            {
+                ProviderName = "Stored"
+            };
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("SurveyModel"))
+                .Returns(ToJson(expectedItem));
 
             // Act
-            var result = await _sut.GetSurveyModel(_userId);
+            var result = _sessionService.GetSurveyModel();
 
             // Assert
             result.ProviderName.Should().Be("Stored");
         }
 
         [Test]
-        public async Task UpdateSurveyModel_Should_Apply_Action_And_Save()
+        public void  GetSurveyModel_Should_Return_null_When_No_Value_Found()
         {
             // Arrange
-            var existing = new SurveyModel { ProviderName = "Old" };
-            var bytes = ToBytes(existing);
-            _mockCache.Setup(c => c.GetAsync("LOCAL_" + _userId.ToString(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(bytes);
-
-            SurveyModel saved = null;
-            _mockCache.Setup(c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((_, val, _, _) =>
-                {
-                    saved = FromBytes<SurveyModel>(val);
-                })
-                .Returns(Task.CompletedTask);
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("SurveyModel"))
+                .Returns((string?)null);
 
             // Act
-            await _sut.UpdateSurveyModel(_userId, s => s.ProviderName = "Updated");
+            var result = _sessionService.GetSurveyModel();
 
             // Assert
-            saved.ProviderName.Should().Be("Updated");
+            result.Should().BeNull();            
         }
 
         [Test]
-        public async Task GetPagingState_Should_Return_Deserialized_Value()
+        public void UpdateSurveyModel_Should_Apply_Action_And_Save()
         {
             // Arrange
-            var pagingState = new PagingState { PageIndex = 2 };
-            var bytes = ToBytes(pagingState);
-            _mockCache.Setup(c => c.GetAsync("LOCAL_" + _userId + "_PagingState", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(bytes);
+            var existingItem = new SurveyModel
+            {
+                ProviderName = "Old"
+            };
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("SurveyModel"))
+                .Returns(ToJson(existingItem));
+
+            SurveyModel savedItem = null!;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((_, value) =>
+                {
+                    savedItem = FromJson<SurveyModel>(value);
+                });
 
             // Act
-            var result = await _sut.GetPagingState(_userId);
+            var result = _sessionService.UpdateSurveyModel(x => x.ProviderName = "Updated");
+
+            // Assert
+            result.ProviderName.Should().Be("Updated");
+            savedItem.ProviderName.Should().Be("Updated");
+        }
+
+        [Test]
+        public void GetPagingState_Should_Return_Deserialized_PagingState()
+        {
+            // Arrange
+            var expectedItem = new PagingState
+            {
+                PageIndex = 2
+            };
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("PagingState"))
+                .Returns(ToJson(expectedItem));
+
+            // Act
+            var result = _sessionService.GetPagingState();
 
             // Assert
             result.PageIndex.Should().Be(2);
         }
 
         [Test]
-        public async Task SetPagingState_Should_Store_With_Environment_Prefix()
+        public void GetPagingState_Should_Return_Default_PagingState_When_No_Value_Found()
         {
             // Arrange
-            var pagingState = new PagingState { PageIndex = 3 };
-            string storedKey = null;
-            _mockCache.Setup(c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((key, _, _, _) =>
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("PagingState"))
+                .Returns((string?)null);
+
+            // Act
+            var result = _sessionService.GetPagingState();
+
+            // Assert
+            result.Should().BeEquivalentTo(new PagingState());
+        }
+
+        [Test]
+        public void SetPagingState_Should_Store_Serialized_PagingState()
+        {
+            // Arrange
+            var pagingState = new PagingState
+            {
+                PageIndex = 3
+            };
+
+            string storedKey = null!;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((key, _) =>
                 {
                     storedKey = key;
-                })
-                .Returns(Task.CompletedTask);
-
+                });
+            
             // Act
-            await _sut.SetPagingState(_userId, pagingState);
+             _sessionService.SetPagingState(pagingState);
 
             // Assert
-            storedKey.Should().Be("LOCAL_" + _userId + "_PagingState");
+            storedKey.Should().Be("PagingState");
         }
 
         [Test]
-        public async Task UpdatePagingState_Should_Create_If_Not_Exist_And_Apply_Action()
+        public void UpdatePagingState_Should_Create_If_Not_Exist_And_Apply_Action()
         {
             // Arrange
-            _mockCache.Setup(c => c.GetAsync("LOCAL_" + _userId + "_PagingState", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((byte[])null);
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("PagingState"))
+                .Returns((string?)null);
 
-            PagingState saved = null;
-            _mockCache.Setup(c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((_, val, _, _) =>
+            PagingState savedItem = null!;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((_, value) =>
                 {
-                    saved = FromBytes<PagingState>(val);
-                })
-                .Returns(Task.CompletedTask);
+                    savedItem = FromJson<PagingState>(value);
+                });               
 
             // Act
-            await _sut.UpdatePagingState(_userId, p => p.PageIndex = 9);
+            var result = _sessionService.UpdatePagingState(x => x.PageIndex = 9);
 
             // Assert
-            saved.PageIndex.Should().Be(9);
+            result.PageIndex.Should().Be(9);
+            savedItem.PageIndex.Should().Be(9);
         }
 
         [Test]
-        public async Task SetFeedbackSource_Should_Save_To_Cache()
+        public void SetFeedbackSource_Should_Store_Serialized_FeedbackSource()
         {
             // Arrange
             var feedbackSource = FeedbackSource.Email;
-            string storedKey = null;
+            string storedKey = null!;
             FeedbackSource savedValue = default;
-            _mockCache.Setup(c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((key, val, _, _) =>
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((key, value) =>
                 {
                     storedKey = key;
-                    savedValue = FromBytes<FeedbackSource>(val);
-                })
-                .Returns(Task.CompletedTask);
+                    savedValue = FromJson<FeedbackSource>(value);
+                });               
 
             // Act
-            await _sut.SetFeedbackSource(_userId, feedbackSource);
+            _sessionService.SetFeedbackSource(feedbackSource);
 
             // Assert
-            storedKey.Should().Be($"LOCAL_{_userId}_FeedbackSource");
+            storedKey.Should().Be("FeedbackSource");
             savedValue.Should().Be(FeedbackSource.Email);
         }
 
         [Test]
-        public async Task GetFeedbackSource_Should_Deserialize_From_Cache()
+        public void GetFeedbackSource_Should_Return_Deserialized_FeedbackSource()
         {
             // Arrange
-            var expected = FeedbackSource.AdHoc;
-            var bytes = ToBytes(expected);
-            _mockCache.Setup(c => c.GetAsync($"LOCAL_{_userId}_FeedbackSource", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(bytes);
+            var expectedItem = FeedbackSource.AdHoc;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("FeedbackSource"))
+                .Returns(ToJson(expectedItem));
 
             // Act
-            var result = await _sut.GetFeedbackSource(_userId);
+            var result = _sessionService.GetFeedbackSource();
 
             // Assert
             result.Should().Be(FeedbackSource.AdHoc);
         }
 
         [Test]
-        public async Task SetProviders_Should_Serialize_And_Save()
+        public void GetFeedbackSource_Should_Return_Null_When_No_Value_Found()
+        {
+            // Arrange
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("FeedbackSource"))
+                .Returns((string?)null);
+
+            // Act
+            var result = _sessionService.GetFeedbackSource();
+
+            // Assert
+            result.Should().BeNull();
+        }
+
+        [Test]
+        public void SetProviders_Should_Store_Serialized_Providers()
         {
             // Arrange
             var providers = new List<ProviderSearchViewModel.EmployerTrainingProvider>
             {
-                new ProviderSearchViewModel.EmployerTrainingProvider { ProviderName = "Provider A" }
-            };
-            List<ProviderSearchViewModel.EmployerTrainingProvider> saved = null;
-            _mockCache.Setup(c => c.SetAsync(It.IsAny<string>(), It.IsAny<byte[]>(), It.IsAny<DistributedCacheEntryOptions>(), It.IsAny<CancellationToken>()))
-                .Callback<string, byte[], DistributedCacheEntryOptions, CancellationToken>((_, val, _, _) =>
+                new ProviderSearchViewModel.EmployerTrainingProvider
                 {
-                    saved = FromBytes<List<ProviderSearchViewModel.EmployerTrainingProvider>>(val);
-                })
-                .Returns(Task.CompletedTask);
+                    ProviderName = "Provider A"
+                }
+            };
+
+            List<ProviderSearchViewModel.EmployerTrainingProvider> savedItem = null!;
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Set(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback<string, string>((_, value) =>
+                {
+                    savedItem = FromJson<List<ProviderSearchViewModel.EmployerTrainingProvider>>(value);
+                });             
 
             // Act
-            await _sut.SetProviders(_userId, providers);
+             _sessionService.SetProviders(providers);
 
             // Assert
-            saved.Should().ContainSingle(p => p.ProviderName == "Provider A");
+            savedItem.Should().ContainSingle(x => x.ProviderName == "Provider A");
         }
 
         [Test]
-        public async Task GetProviders_Should_Return_Deserialized_List()
+        public void GetProviders_Should_Return_Deserialized_Providers()
         {
             // Arrange
-            var expected = new List<ProviderSearchViewModel.EmployerTrainingProvider>
+            var expectedItem = new List<ProviderSearchViewModel.EmployerTrainingProvider>
             {
-                new ProviderSearchViewModel.EmployerTrainingProvider { ProviderName = "Provider X" }
+                new ProviderSearchViewModel.EmployerTrainingProvider
+                {
+                    ProviderName = "Provider X"
+                }
             };
-            var bytes = ToBytes(expected);
-            _mockCache.Setup(c => c.GetAsync($"LOCAL_{_userId}_Providers", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(bytes);
+
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("Providers"))
+                .Returns(ToJson(expectedItem));
 
             // Act
-            var result = await _sut.GetProviders(_userId);
+            var result = _sessionService.GetProviders();
 
             // Assert
-            result.Should().ContainSingle(p => p.ProviderName == "Provider X");
+            result.Should().ContainSingle(x => x.ProviderName == "Provider X");
         }
 
         [Test]
-        public async Task ClearUserSession_Should_Remove_All_User_Keys()
+        public void GetProviders_Should_Return_Empty_List_When_No_Value_Found()
         {
+            // Arrange
+            _sessionStorageServiceMock
+                .Setup(x => x.Get("Providers"))
+                .Returns((string?)null);
+
             // Act
-            await _sut.ClearUserSession(_userId);
+            var result = _sessionService.GetProviders();
 
             // Assert
-            _mockCache.Verify(c => c.RemoveAsync("LOCAL_" + _userId.ToString(), It.IsAny<CancellationToken>()), Times.Once);
-            _mockCache.Verify(c => c.RemoveAsync("LOCAL_" + _userId + "_PagingState", It.IsAny<CancellationToken>()), Times.Once);
-            _mockCache.Verify(c => c.RemoveAsync("LOCAL_" + _userId + "_FeedbackSource", It.IsAny<CancellationToken>()), Times.Once);
-            _mockCache.Verify(c => c.RemoveAsync("LOCAL_" + _userId + "_Providers", It.IsAny<CancellationToken>()), Times.Once);
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+        }
+
+
+        [Test]
+        public void  ClearUserSession_Should_Clear_All_User_Session_Keys()
+        {
+            // Act
+            _sessionService.ClearUserSession();
+
+            // Assert
+            _sessionStorageServiceMock.Verify(x => x.Clear("SurveyModel"), Times.Once);
+            _sessionStorageServiceMock.Verify(x => x.Clear("PagingState"), Times.Once);
+            _sessionStorageServiceMock.Verify(x => x.Clear("FeedbackSource"), Times.Once);
+            _sessionStorageServiceMock.Verify(x => x.Clear("Providers"), Times.Once);
+            _sessionStorageServiceMock.VerifyNoOtherCalls();
         }
     }
 }
