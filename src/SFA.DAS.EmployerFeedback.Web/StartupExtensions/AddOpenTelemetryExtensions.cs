@@ -1,4 +1,5 @@
 ﻿using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 
@@ -14,14 +15,19 @@ namespace SFA.DAS.EmployerFeedback.Web.StartupExtensions
         /// <param name="appInsightsConnectionString">Azure app insights connection string.</param>
         public static void AddOpenTelemetryRegistration(this IServiceCollection services, string appInsightsConnectionString)
         {
-            services.AddApplicationInsightsTelemetry();
             if (!string.IsNullOrEmpty(appInsightsConnectionString))
             {
+                services.AddApplicationInsightsTelemetry();
                 // This service will collect and send telemetry data to Azure Monitor.
                 services.AddOpenTelemetry().UseAzureMonitor(options =>
                 {
                     options.ConnectionString = appInsightsConnectionString;
                 });
+            }
+            else
+            {
+                services.AddSingleton(TelemetryConfiguration.CreateDefault());
+                services.AddSingleton<Microsoft.ApplicationInsights.AspNetCore.JavaScriptSnippet>();
             }
         }
     }
