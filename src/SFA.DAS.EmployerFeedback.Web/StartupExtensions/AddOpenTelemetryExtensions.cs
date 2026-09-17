@@ -1,5 +1,4 @@
 ﻿using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 
