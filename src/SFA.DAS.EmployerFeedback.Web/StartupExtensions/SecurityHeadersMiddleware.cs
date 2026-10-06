@@ -37,7 +37,8 @@ namespace SFA.DAS.EmployerFeedback.Web.StartupExtensions
 
             var connectSrc =
                 "'self' https://www.google-analytics.com " +
-                "https://region1.analytics.google.com https://*.applicationinsights.azure.com " +
+                "https://region1.analytics.google.com " +
+                "https://*.google-analytics.com https://*.applicationinsights.azure.com " +
                 "https://js.monitor.azure.com https://*.zendesk.com https://*.zdassets.com " +
                 "wss://*.zopim.com https://*.rcrsv.io";
 
