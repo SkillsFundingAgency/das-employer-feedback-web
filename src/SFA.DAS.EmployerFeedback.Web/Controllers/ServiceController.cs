@@ -30,7 +30,7 @@ namespace SFA.DAS.EmployerFeedback.Web.Controllers
         private readonly IConfiguration _config;
         private readonly IStubAuthenticationService _stubAuthenticationService;
         private readonly IHttpContextAccessor _contextAccessor;
-        private readonly ISessionStorageService _sessionStorageService;
+        private readonly ISessionService _sessionService;
         private readonly IUserService _userService;
         private readonly ILogger<ServiceController> _logger;
 
@@ -38,33 +38,33 @@ namespace SFA.DAS.EmployerFeedback.Web.Controllers
             IConfiguration config,
             IStubAuthenticationService stubAuthenticationService,
             IHttpContextAccessor contextAccessor,
-            ISessionStorageService sessionStorageService,
+            ISessionService sessionService,
             IUserService userService,
             ILogger<ServiceController> logger)
         {
             _config = config;
             _contextAccessor = contextAccessor;
             _stubAuthenticationService = stubAuthenticationService;
-            _sessionStorageService = sessionStorageService;
+            _sessionService = sessionService;
             _userService = userService;
             _logger = logger;
         }
 
         [HttpGet]
         [Route("signout", Name = SignoutGet)]
-        public new async Task<IActionResult> SignOut()
+        public new async Task <IActionResult> SignOut()
         {
-            // clear distributed cache entries associated with the user if we can determine the user id
+            // clear session entries before sign-out
             var maybeUserId = _userService.GetUserId();
             if (maybeUserId.HasValue)
             {
                 try
                 {
-                    await _sessionStorageService.ClearUserSession(maybeUserId.Value);
+                    _sessionService.ClearUserSession();
                 }
                 catch (Exception ex)
                 {
-                    _logger?.LogWarning(ex, "Failed to clear distributed session cache for user {UserId}", maybeUserId.Value);
+                    _logger?.LogWarning(ex, "Failed to clear session state for user {UserId}", maybeUserId.Value);
                 }
             }
 

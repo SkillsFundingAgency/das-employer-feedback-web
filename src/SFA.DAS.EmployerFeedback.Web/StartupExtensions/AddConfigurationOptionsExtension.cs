@@ -17,8 +17,9 @@ namespace SFA.DAS.EmployerFeedback.Web.StartupExtensions
             services.AddSingleton(cfg => cfg.GetService<IOptions<EmployerFeedbackWebConfiguration>>().Value);
             services.Configure<EmployerFeedbackOuterApiConfiguration>(configuration.GetSection(nameof(EmployerFeedbackOuterApiConfiguration)));
             services.AddSingleton(cfg => cfg.GetService<IOptions<EmployerFeedbackOuterApiConfiguration>>().Value);
-            services.Configure<EncodingConfig>(configuration.GetSection(nameof(EncodingConfig)));
-            services.AddSingleton(cfg => cfg.GetService<IOptions<EncodingConfig>>().Value);
+            var dasEncodingConfig = new EncodingConfig { Encodings = [] };
+            configuration.GetSection(nameof(dasEncodingConfig.Encodings)).Bind(dasEncodingConfig.Encodings);
+            services.AddSingleton(dasEncodingConfig);
         }
     }
 }

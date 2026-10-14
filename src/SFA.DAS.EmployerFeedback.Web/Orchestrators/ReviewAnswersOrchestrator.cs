@@ -8,7 +8,6 @@ using SFA.DAS.EmployerFeedback.Infrastructure.Api.Types;
 using SFA.DAS.EmployerFeedback.Infrastructure.Configuration;
 using SFA.DAS.EmployerFeedback.Infrastructure.Services.UserService;
 using SFA.DAS.EmployerFeedback.Services;
-using SFA.DAS.EmployerFeedback.Web.Extensions;
 using SFA.DAS.EmployerFeedback.Web.Models.ReviewAnswers;
 using SFA.DAS.EmployerFeedback.Web.Models.ReviewAnswers.ReviewAnswers;
 using SFA.DAS.EmployerFeedback.Web.Models.Shared;
@@ -19,7 +18,7 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
 {
     public class ReviewAnswersOrchestrator : BaseOrchestrator, IReviewAnswersOrchestrator
     {
-        private readonly ISessionStorageService _sessionService;
+        private readonly ISessionService _sessionService;
         private readonly ITrainingProviderService _trainingProviderService;
         private readonly IAccountsLinkService _accountsLinkService;
         private readonly IMediator _mediator;
@@ -27,7 +26,7 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
 
         public ReviewAnswersOrchestrator(IUserService userService,
             ILogger<ReviewAnswersOrchestrator> logger,
-            ISessionStorageService sessionService,
+            ISessionService sessionService,
             ITrainingProviderService trainingProviderService,
             IAccountsLinkService accountsLinkService,
             IMediator mediator,
@@ -41,9 +40,9 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
             _config = config;
         }
 
-        public async Task<ReviewAnswersViewModel> GetReviewAnswersViewModel()
+        public ReviewAnswersViewModel GetReviewAnswersViewModel()
         {
-            var survey = await _sessionService.GetSurveyModel(GetUserId());
+            var survey = _sessionService.GetSurveyModel();
             var viewModel = new ReviewAnswersViewModel
             {
                 Survey = survey,
@@ -56,14 +55,14 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
         public async Task<bool> CanSubmitFeedback()
         {
             var userId = GetUserId();
-            var surveyModel = await _sessionService.GetSurveyModel(userId);
+            var surveyModel = _sessionService.GetSurveyModel();
             return await _trainingProviderService.CanSubmitFeedback(surveyModel, userId);
         }
 
         public async Task<bool> SubmitEmployerFeedback(ModelStateDictionary modelState)
         {
             var userId = GetUserId();
-            var surveyModel = await _sessionService.GetSurveyModel(userId);
+            var surveyModel = _sessionService.GetSurveyModel();
 
             var attributes = surveyModel.Attributes
                     .Where(s => s.Good || s.Bad)
@@ -89,11 +88,11 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
             return true;
         }
 
-        public async Task<FeedbackConfirmationViewModel> GetFeedbackConfirmationViewModel(AccountModel model)
+        public FeedbackConfirmationViewModel GetFeedbackConfirmationViewModel(AccountModel model)
         {
             var userId = GetUserId();
-            var surveyModel = await _sessionService.GetSurveyModel(userId);
-            await _sessionService.SetPagingState(userId, null);
+            var surveyModel = _sessionService.GetSurveyModel();
+            _sessionService.SetPagingState(null);
 
             var viewModel = new FeedbackConfirmationViewModel
             {
@@ -117,6 +116,6 @@ namespace SFA.DAS.EmployerFeedback.Web.Orchestrators
             };
 
             return viewModel;
-        }
+        }       
     }
 }

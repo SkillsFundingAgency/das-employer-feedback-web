@@ -5,7 +5,7 @@ using RestEase.HttpClientFactory;
 using SFA.DAS.EmployerFeedback.Application.Commands.SubmitEmployerFeedback;
 using SFA.DAS.EmployerFeedback.Infrastructure.Api.OuterApi;
 using SFA.DAS.EmployerFeedback.Infrastructure.Configuration;
-using SFA.DAS.EmployerFeedback.Infrastructure.Services.CacheStorage;
+using SFA.DAS.EmployerFeedback.Infrastructure.Services.SessionStorage;
 using SFA.DAS.EmployerFeedback.Infrastructure.Services.UserAccounts;
 using SFA.DAS.EmployerFeedback.Infrastructure.Services.UserService;
 using SFA.DAS.EmployerFeedback.Services;
@@ -37,7 +37,7 @@ namespace SFA.DAS.EmployerFeedback.Web.StartupExtensions
             services.AddTransient<IEmployerRoleAuthorizationService, EmployerRoleAuthorizationService>();
             services.AddTransient<IGovAuthEmployerAccountService, UserAccountsService>();
             services.AddTransient<ISessionStorageService, SessionStorageService>();
-            services.AddTransient<ICacheStorageService, CacheStorageService>();
+            services.AddTransient<ISessionService, SessionService>();           
             services.AddTransient<EnsureSessionExistsAttribute>();
             services.AddTransient<ITrainingProviderService, TrainingProviderService>();
             services.AddTransient<IAccountsLinkService, AccountsLinkService>();

@@ -21,7 +21,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
     [TestFixture]
     public class EnsureSessionExistsAttributeTests
     {
-        private Mock<ISessionStorageService> _session;
+        private Mock<ISessionService> _session;
         private Mock<ILogger<EnsureSessionExistsAttribute>> _sessionLogger;
         private Mock<IUserService> _userService;
 
@@ -30,7 +30,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
         [SetUp]
         public void SetUp()
         {
-            _session = new Mock<ISessionStorageService>(MockBehavior.Strict);
+            _session = new Mock<ISessionService>(MockBehavior.Strict);
             _sessionLogger = new Mock<ILogger<EnsureSessionExistsAttribute>>();
             _userService = new Mock<IUserService>(MockBehavior.Strict);
 
@@ -72,7 +72,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
         }
 
         [Test]
-        public async Task When_UserId_Is_Missing_Should_Log_Warn_And_Redirect_To_ProviderSearchGet_And_Not_Call_Next()
+        public void  When_UserId_Is_Missing_Should_Log_Warn_And_Redirect_To_ProviderSearchGet_And_Not_Call_Next()
         {
             // Arrange
             _userService.Setup(u => u.GetUserId()).Returns((Guid?)null);
@@ -81,7 +81,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
             var (next, signal) = NextDelegate();
 
             // Act
-            await _sut.OnActionExecutionAsync(context, next);
+            _sut.OnActionExecuting(context);
 
             // Assert
             signal.IsCompleted.Should().BeFalse(); // next() not called
@@ -102,20 +102,20 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
         }
 
         [Test]
-        public async Task When_Survey_Is_Missing_Should_Log_Warn_And_Redirect_To_ProviderSearchGet_And_Not_Call_Next()
+        public void When_Survey_Is_Missing_Should_Log_Warn_And_Redirect_To_ProviderSearchGet_And_Not_Call_Next()
         {
             // Arrange
             var userId = Guid.NewGuid();
             _userService.Setup(u => u.GetUserId()).Returns(userId);
             _session
-                .Setup(s => s.GetSurveyModel(userId))
-                .ReturnsAsync((SurveyModel)null);
+                .Setup(s => s.GetSurveyModel())
+                .Returns((SurveyModel)null);
 
             var context = BuildContext();
             var (next, signal) = NextDelegate();
 
             // Act
-            await _sut.OnActionExecutionAsync(context, next);
+            _sut.OnActionExecuting(context);
 
             // Assert
             signal.IsCompleted.Should().BeFalse(); // next() not called
@@ -132,28 +132,27 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Infrastructure
                 (Func<It.IsAnyType, Exception, string>)It.IsAny<object>()),
                 Times.Once);
 
-            _session.Verify(s => s.GetSurveyModel(userId), Times.Once);
+            _session.Verify(s => s.GetSurveyModel(), Times.Once);
         }
 
         [Test]
-        public async Task When_Survey_Exists_Should_Call_Next_And_Not_Set_Result()
+        public void  When_Survey_Exists_Should_Call_Next_And_Not_Set_Result()
         {
             // Arrange
             var userId = Guid.NewGuid();
             _userService.Setup(u => u.GetUserId()).Returns(userId);
-            _session.Setup(s => s.GetSurveyModel(userId)).ReturnsAsync(new SurveyModel());
+            _session.Setup(s => s.GetSurveyModel()).Returns(new SurveyModel());
 
             var context = BuildContext();
             var (next, signal) = NextDelegate();
 
             // Act
-            await _sut.OnActionExecutionAsync(context, next);
+            _sut.OnActionExecuting(context);
 
-            // Assert
-            signal.IsCompleted.Should().BeTrue(); // next() was called
+            // Assert            
             context.Result.Should().BeNull();
 
-            _session.Verify(s => s.GetSurveyModel(userId), Times.Once);
+            _session.Verify(s => s.GetSurveyModel(), Times.Once);
 
             _sessionLogger.Verify(l => l.Log(
                 LogLevel.Warning,
