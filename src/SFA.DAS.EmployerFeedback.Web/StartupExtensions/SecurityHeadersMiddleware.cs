@@ -36,7 +36,8 @@ namespace SFA.DAS.EmployerFeedback.Web.StartupExtensions
             context.Response.Headers.AddIfNotPresent("x-xss-protection", new StringValues("0"));
 
             var connectSrc =
-                "'self' https://www.google-analytics.com " +
+                $"'self' {dasCdn} " +
+                "https://www.google-analytics.com " +
                 "https://region1.analytics.google.com " +
                 "https://*.google-analytics.com https://*.applicationinsights.azure.com " +
                 "https://js.monitor.azure.com https://*.zendesk.com https://*.zdassets.com " +
