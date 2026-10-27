@@ -18,7 +18,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
     [TestFixture]
     public class QuestionsControllerTests
     {
-        private Mock<ISessionStorageService> _mockSessionService;
+        private Mock<ISessionService> _mockSessionService;
         private Mock<IUserService> _mockUserService;
         private Mock<ILogger<QuestionsController>> _mockLogger;
         private Mock<IQuestionsOrchestrator> _mockOrchestrator;
@@ -27,7 +27,7 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         [SetUp]
         public void Setup()
         {
-            _mockSessionService = new Mock<ISessionStorageService>();
+            _mockSessionService = new Mock<ISessionService>();
             _mockUserService = new Mock<IUserService>();
             _mockLogger = new Mock<ILogger<QuestionsController>>();
             _mockOrchestrator = new Mock<IQuestionsOrchestrator>();
@@ -46,15 +46,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task StartFeedback_Should_Return_View_With_Model()
+        public void StartFeedback_Should_Return_View_With_Model()
         {
             // Arrange
             var accountModel = new AccountModel { EncodedAccountId = "ACC123" };
             var expectedViewModel = new StartFeedbackViewModel();
-            _mockOrchestrator.Setup(o => o.GetStartFeedbackViewModel(accountModel)).ReturnsAsync(expectedViewModel);
+            _mockOrchestrator.Setup(o => o.GetStartFeedbackViewModel(accountModel)).Returns(expectedViewModel);
 
             // Act
-            var result = await _sut.StartFeedback(accountModel);
+            var result = _sut.StartFeedback(accountModel);
 
             // Assert
             var viewResult = result.Should().BeOfType<ViewResult>().Subject;
@@ -62,15 +62,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionOne_Get_Should_Return_View_With_Model()
+        public  void QuestionOne_Get_Should_Return_View_With_Model()
         {
             // Arrange
             var model = new QuestionRequestModel();
             var expectedViewModel = new QuestionOneStrengthsViewModel();
-            _mockOrchestrator.Setup(o => o.GetQuestionOneStrengthsViewModel(model)).ReturnsAsync(expectedViewModel);
+            _mockOrchestrator.Setup(o => o.GetQuestionOneStrengthsViewModel(model)).Returns(expectedViewModel);
 
             // Act
-            var result = await _sut.QuestionOne(model);
+            var result = _sut.QuestionOne(model);
 
             // Assert
             var viewResult = result.Should().BeOfType<ViewResult>().Subject;
@@ -78,15 +78,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionOne_Post_Should_Redirect_To_Get_When_Invalid()
+        public void QuestionOne_Post_Should_Redirect_To_Get_When_Invalid()
         {
             // Arrange
             var viewModel = new QuestionOneStrengthsViewModel { EncodedAccountId = "AAA1111", ReturnToReviewAnswers = false };
             _mockOrchestrator.Setup(o => o.ValidateQuestionOneStrengthsViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(false);
+                .Returns(false);
 
             // Act
-            var result = await _sut.QuestionOne(viewModel);
+            var result = _sut.QuestionOne(viewModel);
 
             // Assert
             var redirect = result.Should().BeOfType<RedirectToRouteResult>().Subject;
@@ -94,15 +94,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionOne_Post_Should_Update_And_Redirect_To_Review_When_ReturnToReviewAnswers_True()
+        public void QuestionOne_Post_Should_Update_And_Redirect_To_Review_When_ReturnToReviewAnswers_True()
         {
             // Arrange
             var viewModel = new QuestionOneStrengthsViewModel { EncodedAccountId = "EFG123", ReturnToReviewAnswers = true };
             _mockOrchestrator.Setup(o => o.ValidateQuestionOneStrengthsViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(true);
+                .Returns(true);
 
             // Act
-            var result = await _sut.QuestionOne(viewModel);
+            var result = _sut.QuestionOne(viewModel);
 
             // Assert
             _mockOrchestrator.Verify(o => o.UpdateQuestionOneAnswers(viewModel), Times.Once);
@@ -112,15 +112,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionOne_Post_Should_Update_And_Redirect_To_QuestionTwo_When_Valid()
+        public void QuestionOne_Post_Should_Update_And_Redirect_To_QuestionTwo_When_Valid()
         {
             // Arrange
             var viewModel = new QuestionOneStrengthsViewModel { EncodedAccountId = "MNO222", ReturnToReviewAnswers = false };
             _mockOrchestrator.Setup(o => o.ValidateQuestionOneStrengthsViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(true);
+                .Returns(true);
 
             // Act
-            var result = await _sut.QuestionOne(viewModel);
+            var result = _sut.QuestionOne(viewModel);
 
             // Assert
             _mockOrchestrator.Verify(o => o.UpdateQuestionOneAnswers(viewModel), Times.Once);
@@ -130,15 +130,16 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionTwo_Get_Should_Return_View_With_Model()
+        public void QuestionTwo_Get_Should_Return_View_With_Model()
         {
+
             // Arrange
             var model = new QuestionRequestModel();
             var expectedViewModel = new QuestionTwoWeaknessesViewModel();
-            _mockOrchestrator.Setup(o => o.GetQuestionTwoWeaknessesViewModel(model)).ReturnsAsync(expectedViewModel);
+            _mockOrchestrator.Setup(o => o.GetQuestionTwoWeaknessesViewModel(model)).Returns(expectedViewModel);
 
             // Act
-            var result = await _sut.QuestionTwo(model);
+            var result = _sut.QuestionTwo(model);
 
             // Assert
             var viewResult = result.Should().BeOfType<ViewResult>().Subject;
@@ -146,15 +147,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionTwo_Post_Should_Redirect_To_Get_When_Invalid()
+        public void QuestionTwo_Post_Should_Redirect_To_Get_When_Invalid()
         {
             // Arrange
             var viewModel = new QuestionTwoWeaknessesViewModel { EncodedAccountId = "ABC321", ReturnToReviewAnswers = false };
             _mockOrchestrator.Setup(o => o.ValidateQuestionTwoWeaknessesViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(false);
+                .Returns(false);
 
             // Act
-            var result = await _sut.QuestionTwo(viewModel);
+            var result = _sut.QuestionTwo(viewModel);
 
             // Assert
             var redirect = result.Should().BeOfType<RedirectToRouteResult>().Subject;
@@ -162,15 +163,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionTwo_Post_Should_Update_And_Redirect_To_Review_When_ReturnToReviewAnswers_True()
+        public void QuestionTwo_Post_Should_Update_And_Redirect_To_Review_When_ReturnToReviewAnswers_True()
         {
             // Arrange
             var viewModel = new QuestionTwoWeaknessesViewModel { EncodedAccountId = "CAB123", ReturnToReviewAnswers = true };
             _mockOrchestrator.Setup(o => o.ValidateQuestionTwoWeaknessesViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(true);
+                .Returns(true);
 
             // Act
-            var result = await _sut.QuestionTwo(viewModel);
+            var result = _sut.QuestionTwo(viewModel);
 
             // Assert
             _mockOrchestrator.Verify(o => o.UpdateQuestionTwoAnswers(viewModel), Times.Once);
@@ -180,15 +181,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionTwo_Post_Should_Update_And_Redirect_To_QuestionThree_When_Valid()
+        public void QuestionTwo_Post_Should_Update_And_Redirect_To_QuestionThree_When_Valid()
         {
             // Arrange
             var viewModel = new QuestionTwoWeaknessesViewModel { EncodedAccountId = "EFG432", ReturnToReviewAnswers = false };
             _mockOrchestrator.Setup(o => o.ValidateQuestionTwoWeaknessesViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(true);
+                .Returns(true);
 
             // Act
-            var result = await _sut.QuestionTwo(viewModel);
+            var result = _sut.QuestionTwo(viewModel);
 
             // Assert
             _mockOrchestrator.Verify(o => o.UpdateQuestionTwoAnswers(viewModel), Times.Once);
@@ -198,15 +199,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionThree_Get_Should_Return_View_With_Model()
+        public void QuestionThree_Get_Should_Return_View_With_Model()
         {
             // Arrange
             var model = new QuestionRequestModel();
             var expectedViewModel = new QuestionThreeRatingViewModel();
-            _mockOrchestrator.Setup(o => o.GetQuestionThreeRatingViewModel(model)).ReturnsAsync(expectedViewModel);
+            _mockOrchestrator.Setup(o => o.GetQuestionThreeRatingViewModel(model)).Returns(expectedViewModel);
 
             // Act
-            var result = await _sut.QuestionThree(model);
+            var result = _sut.QuestionThree(model);
 
             // Assert
             var viewResult = result.Should().BeOfType<ViewResult>().Subject;
@@ -214,15 +215,15 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
         }
 
         [Test]
-        public async Task QuestionThree_Post_Should_Redirect_To_Get_When_Invalid()
+        public void QuestionThree_Post_Should_Redirect_To_Get_When_Invalid()
         {
             // Arrange
             var viewModel = new QuestionThreeRatingViewModel { EncodedAccountId = "ABC321", ReturnToReviewAnswers = false };
             _mockOrchestrator.Setup(o => o.ValidateQuestionThreeRatingViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(false);
+                .Returns(false);
 
             // Act
-            var result = await _sut.QuestionThree(viewModel);
+            var result = _sut.QuestionThree(viewModel);
 
             // Assert
             var redirect = result.Should().BeOfType<RedirectToRouteResult>().Subject;
@@ -235,10 +236,10 @@ namespace SFA.DAS.EmployerFeedback.Web.UnitTests.Controllers
             // Arrange
             var viewModel = new QuestionThreeRatingViewModel { EncodedAccountId = "XYZ123" };
             _mockOrchestrator.Setup(o => o.ValidateQuestionThreeRatingViewModel(viewModel, It.IsAny<ModelStateDictionary>()))
-                .ReturnsAsync(true);
+                .Returns(true);
 
             // Act
-            var result = await _sut.QuestionThree(viewModel);
+            var result = _sut.QuestionThree(viewModel);
 
             // Assert
             _mockOrchestrator.Verify(o => o.UpdateQuestionThreeAnswers(viewModel), Times.Once);
